@@ -191,6 +191,9 @@ class Aks2MembershipProController extends JControllerLegacy
 		}
 		else
 		{
+			$membershipProVersion = OSMembershipHelper::getInstalledVersion();
+			$calculateMainRecord  = version_compare($membershipProVersion, '2.6.0', 'ge');
+			/* @var OSMembershipTableSubscriber $row */
 			$row = JTable::getInstance('Subscriber', 'OSMembershipTable');
 
 			foreach ($subscriptions as $subscription)
@@ -281,7 +284,12 @@ class Aks2MembershipProController extends JControllerLegacy
 				$row->params = $params->toString();
 
 				// Find and set profile ID
-				$profileId = 0;
+				$row->is_profile = 1;
+				if ($calculateMainRecord)
+				{
+					$row->plan_main_record = 1;
+				}
+
 				if ($row->user_id > 0)
 				{
 					$query->clear();
@@ -291,16 +299,38 @@ class Aks2MembershipProController extends JControllerLegacy
 						->where('user_id = ' . $row->user_id);
 					$db->setQuery($query);
 					$profileId = $db->loadResult();
+
+					if ($profileId)
+					{
+						$row->is_profile = 0;
+						$row->profile_id = $profileId;
+					}
+
+					if ($calculateMainRecord)
+					{
+						$query->clear()
+							->select('plan_subscription_from_date')
+							->from('#__osmembership_subscribers')
+							->where('plan_main_record = 1')
+							->where('user_id = ' . $row->user_id)
+							->where('plan_id = ' . $row->plan_id);
+						$db->setQuery($query);
+						$db->setQuery($query);
+						$planMainRecord = $db->loadObject();
+
+						if ($planMainRecord)
+						{
+							$row->plan_main_record            = 0;
+							$row->plan_subscription_from_date = $planMainRecord->plan_subscription_from_date;
+						}
+					}
 				}
 
-				if ($profileId)
+				if ($calculateMainRecord && $row->plan_main_record == 1)
 				{
-					$row->is_profile = 0;
-					$row->profile_id = $profileId;
-				}
-				else
-				{
-					$row->is_profile = 1;
+					$row->plan_subscription_status    = $row->published;
+					$row->plan_subscription_from_date = $row->from_date;
+					$row->plan_subscription_to_date   = $row->to_date;
 				}
 
 				if ($row->amount > 0)
