@@ -47,11 +47,9 @@ class Aks2MembershipProController extends JControllerLegacy
 		$db->setQuery($query);
 		$categories = $db->loadObjectList();
 
-		$row = JTable::getInstance('Category', 'OSMembershipTable');
-
 		foreach ($categories as $category)
 		{
-			$row->id          = 0;
+			$row              = JTable::getInstance('Category', 'OSMembershipTable');
 			$row->title       = $category->title;
 			$row->published   = $category->enabled;
 			$row->category_id = $category->akeebasubs_levelgroup_id;
@@ -98,11 +96,9 @@ class Aks2MembershipProController extends JControllerLegacy
 		$db->setQuery($query);
 		$plans = $db->loadObjectList();
 
-		$row = JTable::getInstance('Plan', 'OSMembershipTable');
-
 		foreach ($plans as $plan)
 		{
-			$row->id                  = 0;
+			$row                      = JTable::getInstance('Plan', 'OSMembershipTable');
 			$row->title               = $plan->title;
 			$row->description         = $row->short_description = $plan->description;
 			$row->published           = $plan->enabled;
@@ -193,13 +189,12 @@ class Aks2MembershipProController extends JControllerLegacy
 		{
 			$membershipProVersion = OSMembershipHelper::getInstalledVersion();
 			$calculateMainRecord  = version_compare($membershipProVersion, '2.6.0', 'ge');
-			/* @var OSMembershipTableSubscriber $row */
-			$row = JTable::getInstance('Subscriber', 'OSMembershipTable');
-
 			foreach ($subscriptions as $subscription)
 			{
-				$row->id = 0;
-				$name    = $subscription->name;
+				/* @var OSMembershipTableSubscriber $row */
+				$row  = JTable::getInstance('Subscriber', 'OSMembershipTable');
+				$name = $subscription->name;
+
 				if ($name)
 				{
 					$pos = strpos($name, ' ');
