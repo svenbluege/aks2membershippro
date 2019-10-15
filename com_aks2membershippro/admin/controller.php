@@ -20,6 +20,7 @@ class Aks2MembershipProController extends JControllerLegacy
 		$db->truncateTable('#__osmembership_plans');
 		$db->truncateTable('#__osmembership_coupons');
 		$db->truncateTable('#__osmembership_subscribers');
+		$db->truncateTable('#__osmembership_field_value');
 
 		$this->setRedirect('index.php?option=com_aks2membershippro', JText::_('Data is clean up. Now, you can start the migration'));
 	}
@@ -171,8 +172,9 @@ class Aks2MembershipProController extends JControllerLegacy
 		$start = $this->input->getInt('start', 0);
 		$query->clear();
 		$query->select('a.*, a.state AS payment_state')
-			->select('b.businessname, b.address1, b.address2, b.city, b.state, b.zip, b.country, b.notes')
+			->select('b.businessname, b.address1, b.address2, b.city, b.state, b.zip, b.country, b.notes, b.vatnumber')
 			->select('u.name, u.email')
+			->select('a.akeebasubs_invoice_id as invoice_no')
 			->from('#__akeebasubs_subscriptions AS a')
 			->innerJoin('#__akeebasubs_users AS b ON a.user_id = b.user_id')
 			->innerJoin('#__users AS u ON a.user_id = u.id')
@@ -226,6 +228,7 @@ class Aks2MembershipProController extends JControllerLegacy
 				$row->to_date      = $subscription->publish_down;
 
 				$row->amount          = $subscription->net_amount;
+				$row->tax_rate        = $subscription->tax_percent;
 				$row->tax_amount      = $subscription->tax_amount;
 				$row->discount_amount = $subscription->discount_amount;
 				$row->gross_amount    = $subscription->gross_amount;
@@ -243,7 +246,8 @@ class Aks2MembershipProController extends JControllerLegacy
 						$row->published = 0;
 						break;
 					case 'C':
-						if ($subscription->enabled)
+						// subscriptions in the future are not enabled
+						if ($subscription->enabled || strtotime($subscription->publish_up) > time())
 						{
 							$row->published = 1;
 						}
@@ -276,6 +280,7 @@ class Aks2MembershipProController extends JControllerLegacy
 				$params->set('regular_tax_amount', 0);
 				$params->set('regular_payment_processing_fee', 0);
 				$params->set('regular_gross_amount', $subscription->recurring_amount);
+
 				$row->params = $params->toString();
 
 				// Find and set profile ID
@@ -284,6 +289,7 @@ class Aks2MembershipProController extends JControllerLegacy
 				{
 					$row->plan_main_record = 1;
 				}
+
 
 				if ($row->user_id > 0)
 				{
@@ -330,10 +336,21 @@ class Aks2MembershipProController extends JControllerLegacy
 
 				if ($row->amount > 0)
 				{
-					$row->invoice_number = OSMembershipHelper::getInvoiceNumber($row);
+					$row->invoice_number = $subscription->invoice_no;
 				}
 
 				$row->store();
+
+
+				if (!empty($subscription->vatnumber)) {
+
+					$query->clear()->insert('#__osmembership_field_value')
+
+    				->columns('field_id,subscriber_id,field_value')
+    				->values("'14', '".$row->id."', '".$subscription->vatnumber."'");
+    				$db->setQuery($query);
+					$db->execute();
+				}
 
 				if (!$row->profile_id)
 				{
