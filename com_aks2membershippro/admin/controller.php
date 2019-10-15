@@ -20,7 +20,11 @@ class Aks2MembershipProController extends JControllerLegacy
 		$db->truncateTable('#__osmembership_plans');
 		$db->truncateTable('#__osmembership_coupons');
 		$db->truncateTable('#__osmembership_subscribers');
-		$db->truncateTable('#__osmembership_field_value');
+
+		$query= $db->getQuery(true);
+		$query->delete('#__osmembership_field_value')->where('field_id in (select id from #__osmembership_fields where name in (select config_value from #__osmembership_configs where config_key=\'eu_vat_number_field\'))');
+        $db->setQuery($query);
+        $db->execute();
 
 		$this->setRedirect('index.php?option=com_aks2membershippro', JText::_('Data is clean up. Now, you can start the migration'));
 	}
@@ -171,13 +175,14 @@ class Aks2MembershipProController extends JControllerLegacy
 
 		$start = $this->input->getInt('start', 0);
 		$query->clear();
-		$query->select('a.*, a.state AS payment_state')
+		$query->select('a.*, a.state AS payment_state, c.name as countryname')
 			->select('b.businessname, b.address1, b.address2, b.city, b.state, b.zip, b.country, b.notes, b.vatnumber')
 			->select('u.name, u.email')
 			->select('a.akeebasubs_invoice_id as invoice_no')
 			->from('#__akeebasubs_subscriptions AS a')
 			->innerJoin('#__akeebasubs_users AS b ON a.user_id = b.user_id')
 			->innerJoin('#__users AS u ON a.user_id = u.id')
+            ->innerJoin('#__osmembership_countries c ON b.country = c.country_2_code')
 			->order('a.akeebasubs_subscription_id');
 		$db->setQuery($query, $start, 200);
 		$subscriptions       = $db->loadObjectList();
@@ -216,7 +221,7 @@ class Aks2MembershipProController extends JControllerLegacy
 				$row->city     = $subscription->city;
 				$row->state    = $subscription->state;
 				$row->zip      = $subscription->zip;
-				$row->country  = $subscription->country;
+				$row->country  = $subscription->countryname;
 				$row->comment  = $subscription->notes;
 
 				$row->plan_id      = $plans[$subscription->akeebasubs_level_id]->id;
@@ -246,7 +251,7 @@ class Aks2MembershipProController extends JControllerLegacy
 						$row->published = 0;
 						break;
 					case 'C':
-						// subscriptions in the future are not enabled
+						// subscriptions which start in the future need to be active
 						if ($subscription->enabled || strtotime($subscription->publish_up) > time())
 						{
 							$row->published = 1;
@@ -345,10 +350,10 @@ class Aks2MembershipProController extends JControllerLegacy
 				if (!empty($subscription->vatnumber)) {
 
 					$query->clear()->insert('#__osmembership_field_value')
-
     				->columns('field_id,subscriber_id,field_value')
-    				->values("'14', '".$row->id."', '".$subscription->vatnumber."'");
-    				$db->setQuery($query);
+    				->values("(select id from #__osmembership_fields where name in (select config_value from #__osmembership_configs where config_key='eu_vat_number_field')), '".$row->id."', '".$subscription->vatnumber."'");
+
+					$db->setQuery($query);
 					$db->execute();
 				}
 
