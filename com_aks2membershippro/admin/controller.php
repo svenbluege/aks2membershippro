@@ -184,7 +184,7 @@ class Aks2MembershipProController extends JControllerLegacy
 			->innerJoin('#__users AS u ON a.user_id = u.id')
             ->innerJoin('#__osmembership_countries c ON b.country = c.country_2_code')
 			->order('a.akeebasubs_subscription_id');
-		$db->setQuery($query, $start, 200);
+		$db->setQuery($query, $start, 500);
 		$subscriptions       = $db->loadObjectList();
 		$numberSubscriptions = count($subscriptions);
 		if (count($subscriptions) == 0)
@@ -202,6 +202,8 @@ class Aks2MembershipProController extends JControllerLegacy
 				$row  = JTable::getInstance('Subscriber', 'OSMembershipTable');
 				$name = $subscription->name;
 
+
+
 				if ($name)
 				{
 					$pos = strpos($name, ' ');
@@ -215,6 +217,7 @@ class Aks2MembershipProController extends JControllerLegacy
 						$row->first_name = $name;
 					}
 				}
+
 
 				$row->address  = $subscription->address1;
 				$row->address2 = $subscription->address2;
@@ -232,7 +235,7 @@ class Aks2MembershipProController extends JControllerLegacy
 				$row->from_date    = $subscription->publish_up;
 				$row->to_date      = $subscription->publish_down;
 
-				$row->amount          = $subscription->net_amount;
+				$row->amount          = $subscription->prediscount_amount;
 				$row->tax_rate        = $subscription->tax_percent;
 				$row->tax_amount      = $subscription->tax_amount;
 				$row->discount_amount = $subscription->discount_amount;
@@ -268,6 +271,7 @@ class Aks2MembershipProController extends JControllerLegacy
 						$row->published = 3;
 						break;
 				}
+
 
 				$row->subscriber_id = $subscription->akeebasubs_subscription_id;
 
